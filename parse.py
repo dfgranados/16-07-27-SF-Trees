@@ -1,4 +1,5 @@
 #trees density per mile in San Francisco
+#data source: https://data.sfgov.org/City-Infrastructure/Street-Tree-List/tkzw-k3nq
 
 import csv
 import geojson
@@ -27,37 +28,39 @@ with open(data_file) as myfile:
 # Define type of GeoJSON we're creating
 geo_map = {"type": "FeatureCollection"}
 
-# Define empty list to collect each point to graph
-tree_list = []
 
 # Iterate over our data to create GeoJSOn document.
 # Use iterrows to get make the Dataframe iterable
-for index, line in trees.iterrows():
-	#check if lat entry is empty
-	if line[15] == "":
-		continue
+def create_geojson(dframe):
+	# Define empty list to collect each point to graph
+	tree_list = []
 
-	# Setup a new dictionary for each iteration.
-	data = {}
+	for index, line in dframe.iterrows():
+		#check if lat entry is empty
+		if line[15] == "":
+			continue
 
-	# Assign line items to appropriate GeoJSON fields.
-	data['type'] = 'Feature'
-	data['id'] = str(index)
-	data['properties'] = {'title': line[2]}
-	data['geometry'] = {'type': 'Point',
-						'coordinates': (line[16], line[15])}
+		# Setup a new dictionary for each iteration.
+		data = {}
 
-	# Add data dictionary to tree_list
-	tree_list.append(data)
+		# Assign line items to appropriate GeoJSON fields.
+		data['type'] = 'Feature'
+		data['id'] = str(index)
+		data['properties'] = {'title': line[2]}
+		data['geometry'] = {'type': 'Point',
+							'coordinates': (line[16], line[15])}
 
-# for point in tree_list:
-#         geo_map.setdefault('features', []).append(point)
+		# Add data dictionary to tree_list
+		tree_list.append(data)
 
-# with open('file_sf_trees.geojson', 'w') as f:
-#         f.write(geojson.dumps(geo_map))
+	for point in tree_list:
+	        geo_map.setdefault('features', []).append(point)
+
+	with open('file_sf_trees.geojson', 'w') as f:
+	        f.write(geojson.dumps(geo_map))
+
 
 #define the border coordinates
-
 left_most = -122.517600
 right_most = -122.357129
 top_most = 37.810950
@@ -68,23 +71,39 @@ coor_tl = [top_most, left_most]
 coor_br = [bottom_most, right_most]
 coor_tr = [top_most, right_most]
 
-#define the bins into which to categorize each of the trees
-def grid(top, left, bottom, right, bins):
-	long_bin = abs((top-bottom)/bins)
-	lat_bin = abs((left-right)/bins)
+#sort columns by longitude
+trees.sort_values([15], ascending=False, inplace=True)
+#convert values in the coordinate columns to floats. Coerce errors to NaN
+# trees[15] = pd.to_numeric(trees[15], errors='coerce')
+trees[[15,16]] = trees[[15,16]].apply(pd.to_numeric)
 
-	#categorize tress into each bin, which will be a 2D array. sort the data set and split it on each bin
+#define the bins into which to categorize each of the trees
+def grid(top, left, bottom, right, num_bins):
+	long_bin = abs((top-bottom)/num_bins)
+	lat_bin = abs((left-right)/num_bins)
+
 	count = 0
-	for x in range(bins+1):
-		print("long range: " + str(bottom+long_bin*count))
-		print("lat range: " + str(left+lat_bin*count))
+	bin_bound = []
+	for x in range(num_bins+1):
+		long_coor = bottom+long_bin*count
+		lat_coor = left+lat_bin*count
+		bin_bound.append([long_coor,lat_coor])
 		count += 1
 
+	#categorize tress into each bin, which will be a 2D array
+	#use subsets to split trees dataframe
+	cat_grid = []
+	for x in range(num_bins):
+		cat_grid.append(trees[(bin_bound[x][0] <= trees[15]) & (bin_bound[x+1][0] > trees[15])])
 
+	#THE DATA IS SPLIT ALONG ONE AXIS, NOW SPLIT IT ALONG ANOTHER
+	longlat_grid = []
 
-print(grid(top_most,left_most,bottom_most,right_most,10))
-trees.sort(columns=[15], ascending=False, inplace=True)
-print(trees.head())
+	return(cat_grid)
+
+cat_grid = grid(top_most,left_most,bottom_most,right_most,10)
+create_geojson(cat_grid[9])
+print(cat_grid[4])
 
 #count the number in each bin
 
