@@ -5,6 +5,7 @@ import csv
 import geojson
 import pandas as pd
 import numpy as np
+np.set_printoptions(threshold=np.nan)
 import json
 import matplotlib.pyplot as plt
 
@@ -92,18 +93,24 @@ def grid(top, left, bottom, right, num_bins):
 
 	#categorize tress into each bin, which will be a 2D array
 	#use subsets to split trees dataframe
-	cat_grid = []
+	lat_grid = []
 	for x in range(num_bins):
-		cat_grid.append(trees[(bin_bound[x][0] <= trees[15]) & (bin_bound[x+1][0] > trees[15])])
+		lat_grid.append(trees[(trees[15] >= bin_bound[x][0]) & ( trees[15] < bin_bound[x+1][0])])
 
 	#THE DATA IS SPLIT ALONG ONE AXIS, NOW SPLIT IT ALONG ANOTHER
-	longlat_grid = []
+	#initialize multidimensional list to hold each dataframe, each value is first initialized to 0. Dimensions are num_binsXnum_bins
+	longlat_list = [[0] * num_bins for i in range(num_bins)]
 
-	return(cat_grid)
+	#loop through each latitude slice and split each into longitude-defined squares.
+	for l in range(num_bins):
+		for x in range(num_bins):
+			longlat_list[l][x] = lat_grid[l][(lat_grid[l][16] >= bin_bound[x][1]) & (lat_grid[l][16] < bin_bound[x+1][1])]
+	return(longlat_list)
 
-cat_grid = grid(top_most,left_most,bottom_most,right_most,10)
-create_geojson(cat_grid[9])
-print(cat_grid[4])
+split_grid = grid(top_most,left_most,bottom_most,right_most,10)
+create_geojson(split_grid[2][2])
+print(split_grid[2][2])
+print(len(split_grid))
 
 #count the number in each bin
 
